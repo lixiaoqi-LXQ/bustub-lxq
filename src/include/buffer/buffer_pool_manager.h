@@ -102,7 +102,7 @@ class BufferPoolManager {
    * @param access_type type of access to the page, only needed for leaderboard tests.
    * @return nullptr if page_id cannot be fetched, otherwise pointer to the requested page
    */
-  auto FetchPage(page_id_t page_id, AccessType access_type = AccessType::Unknown) -> Page *;
+  auto FetchPage(page_id_t pid, AccessType access_type = AccessType::Unknown) -> Page *;
 
   /**
    * TODO(P2): Add implementation
@@ -197,7 +197,7 @@ class BufferPoolManager {
    * @brief Allocate a page on disk. Caller should acquire the latch before calling this function.
    * @return the id of the allocated page
    */
-  auto AllocatePage() -> page_id_t;
+  auto AllocatePage() -> page_id_t { return next_page_id_++; }
 
   /**
    * @brief Deallocate a page on disk. Caller should acquire the latch before calling this function.
@@ -206,6 +206,20 @@ class BufferPoolManager {
   void DeallocatePage(__attribute__((unused)) page_id_t page_id) {
     // This is a no-nop right now without a more complex data structure to track deallocated pages
   }
+
+  /// @brief grab one page from either free list or replacer
+  /// @param pid set new page's page-id to pid if pid is valid, or allocate a new one
+  /// @return pointer to new page, nullptr if no chance
+  auto NewPage(page_id_t pid = INVALID_PAGE_ID) -> Page *;
+
+  static inline void ResetPage(Page *p) {
+    p->ResetMemory();
+    p->page_id_ = INVALID_PAGE_ID;
+    p->pin_count_ = 0;
+    p->is_dirty_ = false;
+  }
+
+  void SyncPageIfDirty(Page *page_ptr);
 
   // TODO(student): You may add additional private members and helper functions
 };

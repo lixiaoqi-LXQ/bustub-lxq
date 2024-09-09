@@ -14,6 +14,7 @@
 
 #include <limits>
 #include <list>
+#include <memory>
 #include <mutex>  // NOLINT
 #include <unordered_map>
 #include <vector>
@@ -25,15 +26,55 @@ namespace bustub {
 
 enum class AccessType { Unknown = 0, Lookup, Scan, Index };
 
-class LRUKNode {
- private:
-  /** History of last seen K timestamps of this page. Least recent timestamp stored in front. */
-  // Remove maybe_unused if you start using them. Feel free to change the member variables as you want.
+class LRUKNode;
+using LRUKNodePtr = std::shared_ptr<LRUKNode>;
 
-  [[maybe_unused]] std::list<size_t> history_;
-  [[maybe_unused]] size_t k_;
-  [[maybe_unused]] frame_id_t fid_;
-  [[maybe_unused]] bool is_evictable_{false};
+class LRUKNode {
+  friend class LRUKEvictList;
+
+ public:
+  /** History of last seen K timestamps of this page. Least recent timestamp stored in front. */
+  LRUKNode(frame_id_t fid, size_t k) : fid_(fid), k_(k) {}
+
+  inline auto IsHistoryFull() const -> bool { return history_.size() == k_; }
+  inline auto IsEvictable() const -> bool { return is_evictable_; }
+  inline auto GetFrameID() const -> frame_id_t { return fid_; }
+  inline auto GetLatestts() const -> size_t { return *history_.begin(); }
+  inline auto Getoldestts() const -> size_t { return *history_.rbegin(); }
+  inline auto GetKts() const -> size_t { return IsHistoryFull() ? *history_.rbegin() : 0; }
+  void UpdateHistory(size_t ts);
+
+  friend auto operator<(const LRUKNode &n1, const LRUKNode &n2) -> bool;
+
+ private:
+  const frame_id_t fid_;
+  const size_t k_;
+  bool is_evictable_{false};
+  std::list<size_t> history_{};
+
+  // Linked List
+  LRUKNodePtr prev_{nullptr};
+  LRUKNodePtr next_{nullptr};
+};
+
+class LRUKEvictList {
+ private:
+  size_t size_{0};
+  // guard_->next_ is the head of the list, while guard_->prev_ is the tail
+  LRUKNodePtr guard_;
+
+ public:
+  LRUKEvictList();
+  ~LRUKEvictList();
+
+  auto GetSize() const -> size_t { return size_; }
+  void Add(const LRUKNodePtr &node);
+  void Remove(const LRUKNodePtr &node);
+  void UpdatePosition(const LRUKNodePtr &node);
+  auto Evict() -> LRUKNodePtr;
+
+ private:
+  auto IsGuard(const LRUKNodePtr &node) -> bool { return node == guard_; }
 };
 
 /**
@@ -149,13 +190,15 @@ class LRUKReplacer {
 
  private:
   // TODO(student): implement me! You can replace these member variables as you like.
-  // Remove maybe_unused if you start using them.
-  [[maybe_unused]] std::unordered_map<frame_id_t, LRUKNode> node_store_;
-  [[maybe_unused]] size_t current_timestamp_{0};
-  [[maybe_unused]] size_t curr_size_{0};
-  [[maybe_unused]] size_t replacer_size_;
-  [[maybe_unused]] size_t k_;
-  [[maybe_unused]] std::mutex latch_;
+  std::unordered_map<frame_id_t, LRUKNodePtr> node_store_;
+  LRUKEvictList evict_list_;
+  size_t current_timestamp_{0};
+  size_t replacer_size_;
+  size_t k_;
+  std::mutex latch_;
+
+ private:
+  auto TimestampInc() -> size_t { return ++current_timestamp_; }
 };
 
 }  // namespace bustub
