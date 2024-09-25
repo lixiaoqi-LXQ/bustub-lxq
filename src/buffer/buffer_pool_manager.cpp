@@ -212,6 +212,7 @@ auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
       ResetPage(page_ptr);
       replacer_->Remove(fid);
       free_list_.push_front(fid);
+      page_table_.erase(iter);
       ret = true;
       DeallocatePage(page_id);
     }
