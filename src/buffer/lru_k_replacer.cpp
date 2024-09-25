@@ -112,21 +112,19 @@ void LRUKEvictList::UpdatePosition(const LRUKNodePtr &node) {
 LRUKReplacer::LRUKReplacer(size_t num_frames, size_t k) : replacer_size_(num_frames), k_(k) {}
 
 auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
-  latch_.lock();
+  std::lock_guard l(latch_);
   if (evict_list_.GetSize() == 0) {
-    latch_.unlock();
     return false;
   }
   auto victim = evict_list_.Evict();
   auto fid = victim->GetFrameID();
   *frame_id = fid;
   node_store_.erase(fid);
-  latch_.unlock();
   return true;
 }
 
 void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType access_type) {
-  latch_.lock();
+  std::lock_guard l(latch_);
   BUSTUB_ASSERT(static_cast<size_t>(frame_id) <= replacer_size_, "frame_id should not be larger than replacer_size_");
   auto iter = node_store_.find(frame_id);
   if (iter == node_store_.end()) {
@@ -138,14 +136,12 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType
   if (node_ptr->IsEvictable()) {
     evict_list_.UpdatePosition(node_ptr);
   }
-  latch_.unlock();
 }
 
 void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
-  latch_.lock();
+  std::lock_guard l(latch_);
   auto node = node_store_.at(frame_id);
   if (node->IsEvictable() == set_evictable) {
-    latch_.unlock();
     return;
   }
   if (set_evictable) {
@@ -153,28 +149,24 @@ void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
   } else {
     evict_list_.Remove(node);
   }
-  latch_.unlock();
 }
 
 void LRUKReplacer::Remove(frame_id_t frame_id) {
-  latch_.lock();
+  std::lock_guard l(latch_);
   BUSTUB_ASSERT(static_cast<size_t>(frame_id) <= replacer_size_, "frame_id should not be larger than replacer_size_");
   auto iter = node_store_.find(frame_id);
   if (iter == node_store_.end()) {
-    latch_.unlock();
     return;
   }
   auto node_ptr = iter->second;
   BUSTUB_ASSERT(node_ptr->IsEvictable(), "Remove should not be called on a non-evictable frame");
   node_store_.erase(iter);
   evict_list_.Remove(node_ptr);
-  latch_.unlock();
 }
 
 auto LRUKReplacer::Size() -> size_t {
-  latch_.lock();
+  std::lock_guard l(latch_);
   auto size = evict_list_.GetSize();
-  latch_.unlock();
   return size;
 }
 

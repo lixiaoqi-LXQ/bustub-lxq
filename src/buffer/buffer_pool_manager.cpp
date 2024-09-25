@@ -114,18 +114,17 @@ auto BufferPoolManager::NewPage(page_id_t pid) -> Page * {
 }
 
 auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
-  latch_.lock();
+  std::lock_guard l(latch_);
   Page *page_ptr = NewPage();
   if (page_ptr != nullptr) {
     *page_id = page_ptr->GetPageId();
   }
-  latch_.unlock();
   // printf("Newpage() return page-id=%d and page*=%p\n", *page_id, page_ptr);
   return page_ptr;
 }
 
 auto BufferPoolManager::FetchPage(page_id_t pid, [[maybe_unused]] AccessType access_type) -> Page * {
-  latch_.lock();
+  std::lock_guard l(latch_);
   Page *page_ptr{nullptr};
   auto iter = page_table_.find(pid);
   if (iter != page_table_.end()) {
@@ -141,13 +140,12 @@ auto BufferPoolManager::FetchPage(page_id_t pid, [[maybe_unused]] AccessType acc
     disk_scheduler_->Schedule(std::move(r));
     future.get();
   }
-  latch_.unlock();
   // printf("FetchPage(pid=%d), page content: %s\n", pid, PageContent2Str(page_ptr).c_str());
   return page_ptr;
 }
 
 auto BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty, [[maybe_unused]] AccessType access_type) -> bool {
-  latch_.lock();
+  std::lock_guard l(latch_);
   bool ret = false;
   auto iter = page_table_.find(page_id);
   Page *page_ptr{nullptr};
@@ -164,39 +162,35 @@ auto BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty, [[maybe_unus
       ret = true;
     }
   }
-  latch_.unlock();
   // printf("UnPinPage(pid=%d, dirty=%s), page content: %s\n", page_id, is_dirty ? "true" : "false",
   //        PageContent2Str(page_ptr).c_str());
   return ret;
 }
 
 auto BufferPoolManager::FlushPage(page_id_t page_id) -> bool {
-  latch_.lock();
+  std::lock_guard l(latch_);
   auto iter = page_table_.find(page_id);
   if (iter == page_table_.end()) {
-    latch_.unlock();
     return false;
   }
   auto fid = iter->second;
   Page *page_ptr = &pages_[fid];
   SyncPageIfDirty(page_ptr);
-  latch_.unlock();
   // printf("FlushPage(pid=%d)\n", page_id);
   return true;
 }
 
 void BufferPoolManager::FlushAllPages() {
-  latch_.lock();
+  std::lock_guard l(latch_);
   for (auto [pid, fid] : page_table_) {
     Page *page_ptr = &pages_[fid];
     SyncPageIfDirty(page_ptr);
   }
-  latch_.unlock();
   // printf("FlushAllPages()\n");
 }
 
 auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
-  latch_.lock();
+  std::lock_guard l(latch_);
   auto iter = page_table_.find(page_id);
   bool ret = false;
   if (iter == page_table_.end()) {
@@ -217,7 +211,6 @@ auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
       DeallocatePage(page_id);
     }
   }
-  latch_.unlock();
   // printf("DeletePage(%d)\n", page_id);
   return ret;
 }
