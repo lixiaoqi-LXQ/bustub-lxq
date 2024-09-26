@@ -93,7 +93,6 @@ class Page {
   bool is_dirty_ = false;
   /** Page latch. */
   ReaderWriterLatch rwlatch_;
-  std::mutex bpmlatch_;
 };
 
 }  // namespace bustub

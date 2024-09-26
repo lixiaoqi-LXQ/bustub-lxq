@@ -124,21 +124,16 @@ auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
 }
 
 auto BufferPoolManager::FetchPage(page_id_t pid, [[maybe_unused]] AccessType access_type) -> Page * {
+  std::lock_guard l(latch_);
   Page *page_ptr{nullptr};
-
-  latch_.lock();
   auto iter = page_table_.find(pid);
   if (iter != page_table_.end()) {
     frame_id_t fid = iter->second;
     page_ptr = &pages_[fid];
-    page_ptr->bpmlatch_.lock();
-    latch_.unlock();
     page_ptr->pin_count_++;
     replacer_->SetEvictable(fid, false);
     replacer_->RecordAccess(fid);
   } else if ((page_ptr = NewPage(pid)) != nullptr) {
-    page_ptr->bpmlatch_.lock();
-    latch_.unlock();
     auto promise = disk_scheduler_->CreatePromise();
     auto future = promise.get_future();
     DiskRequest r{/*is_write=*/false, page_ptr->data_, pid, std::move(promise)};
@@ -146,57 +141,42 @@ auto BufferPoolManager::FetchPage(page_id_t pid, [[maybe_unused]] AccessType acc
     future.get();
   }
   // printf("FetchPage(pid=%d), page content: %s\n", pid, PageContent2Str(page_ptr).c_str());
-  if (page_ptr) {
-    page_ptr->bpmlatch_.unlock();
-  }
   return page_ptr;
 }
 
 auto BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty, [[maybe_unused]] AccessType access_type) -> bool {
-  Page *page_ptr{nullptr};
-  frame_id_t fid;
-  {
-    std::lock_guard l(latch_);
-    auto iter = page_table_.find(page_id);
-    if (iter == page_table_.end()) {
-      return false;
-    }
-    fid = iter->second;
-    page_ptr = &pages_[fid];
-    page_ptr->bpmlatch_.lock();
-  }
-
+  std::lock_guard l(latch_);
   bool ret = false;
-  if (is_dirty) {
-    page_ptr->is_dirty_ = is_dirty;
-  }
-  if (page_ptr->pin_count_ > 0) {
-    if (--page_ptr->pin_count_ == 0) {
-      replacer_->SetEvictable(fid, true);
+  auto iter = page_table_.find(page_id);
+  Page *page_ptr{nullptr};
+  if (iter != page_table_.end()) {
+    auto fid = iter->second;
+    page_ptr = &pages_[fid];
+    if (is_dirty) {
+      page_ptr->is_dirty_ = is_dirty;
     }
-    ret = true;
+    if (page_ptr->pin_count_ > 0) {
+      if (--page_ptr->pin_count_ == 0) {
+        replacer_->SetEvictable(fid, true);
+      }
+      ret = true;
+    }
   }
   // printf("UnPinPage(pid=%d, dirty=%s), page content: %s\n", page_id, is_dirty ? "true" : "false",
   //        PageContent2Str(page_ptr).c_str());
-  page_ptr->bpmlatch_.unlock();
   return ret;
 }
 
 auto BufferPoolManager::FlushPage(page_id_t page_id) -> bool {
-  Page *page_ptr{nullptr};
-  {
-    std::lock_guard l(latch_);
-    auto iter = page_table_.find(page_id);
-    if (iter == page_table_.end()) {
-      return false;
-    }
-    auto fid = iter->second;
-    page_ptr = &pages_[fid];
-    page_ptr->bpmlatch_.lock();
+  std::lock_guard l(latch_);
+  auto iter = page_table_.find(page_id);
+  if (iter == page_table_.end()) {
+    return false;
   }
+  auto fid = iter->second;
+  Page *page_ptr = &pages_[fid];
   SyncPageIfDirty(page_ptr);
   // printf("FlushPage(pid=%d)\n", page_id);
-  page_ptr->bpmlatch_.unlock();
   return true;
 }
 
@@ -204,7 +184,6 @@ void BufferPoolManager::FlushAllPages() {
   std::lock_guard l(latch_);
   for (auto [pid, fid] : page_table_) {
     Page *page_ptr = &pages_[fid];
-    std::lock_guard page_lock(page_ptr->bpmlatch_);
     SyncPageIfDirty(page_ptr);
   }
   // printf("FlushAllPages()\n");
@@ -219,7 +198,6 @@ auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
   } else {
     frame_id_t fid = iter->second;
     Page *page_ptr = &pages_[fid];
-    std::lock_guard page_lock(page_ptr->bpmlatch_);
     if (page_ptr->pin_count_ != 0) {
       ret = false;
     } else {
