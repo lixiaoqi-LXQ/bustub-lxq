@@ -123,6 +123,15 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
   return true;
 }
 
+void LRUKReplacer::Add(frame_id_t frame_id, [[maybe_unused]] AccessType access_type) {
+  std::lock_guard l(latch_);
+  BUSTUB_ASSERT(static_cast<size_t>(frame_id) <= replacer_size_, "frame_id should not be larger than replacer_size_");
+  BUSTUB_ASSERT(node_store_.find(frame_id) == node_store_.end(), "replacer should not contain this fid");
+  auto new_node = std::make_shared<LRUKNode>(frame_id, k_);
+  node_store_.emplace(frame_id, new_node);
+  new_node->UpdateHistory(TimestampInc());
+}
+
 void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType access_type) {
   std::lock_guard l(latch_);
   BUSTUB_ASSERT(static_cast<size_t>(frame_id) <= replacer_size_, "frame_id should not be larger than replacer_size_");

@@ -188,6 +188,11 @@ class LRUKReplacer {
    */
   auto Size() -> size_t;
 
+  /**
+   * @brief Add 1 frame, default is not evictable!
+   */
+  void Add(frame_id_t frame_id, AccessType access_type = AccessType::Unknown);
+
  private:
   // TODO(student): implement me! You can replace these member variables as you like.
   std::unordered_map<frame_id_t, LRUKNodePtr> node_store_;

@@ -192,12 +192,17 @@ class BufferPoolManager {
   std::list<frame_id_t> free_list_;
   /** This latch protects shared data structures. We recommend updating this comment to describe what it protects. */
   std::mutex latch_;
+  std::mutex page_table_lock_, free_list_lock_, next_pid_lock_;
+  std::vector<std::unique_ptr<std::mutex>> page_locks_;
 
   /**
-   * @brief Allocate a page on disk. Caller should acquire the latch before calling this function.
+   * @brief Allocate a page on disk. Caller do not need to acquire the latch before calling this function anymore.
    * @return the id of the allocated page
    */
-  auto AllocatePage() -> page_id_t { return next_page_id_++; }
+  auto AllocatePage() -> page_id_t {
+    std::lock_guard l(next_pid_lock_);
+    return next_page_id_++;
+  }
 
   /**
    * @brief Deallocate a page on disk. Caller should acquire the latch before calling this function.
@@ -207,10 +212,10 @@ class BufferPoolManager {
     // This is a no-nop right now without a more complex data structure to track deallocated pages
   }
 
-  /// @brief grab one page from either free list or replacer
+  /// @brief grab one page from either free list or replacer, lock that page on success
   /// @param pid set new page's page-id to pid if pid is valid, or allocate a new one
   /// @return pointer to new page, nullptr if no chance
-  auto NewPage(page_id_t pid = INVALID_PAGE_ID) -> Page *;
+  auto NewPageAndLock(page_id_t pid = INVALID_PAGE_ID) -> Page *;
 
   static inline void ResetPage(Page *p) {
     p->ResetMemory();
@@ -220,6 +225,24 @@ class BufferPoolManager {
   }
 
   void SyncPageIfDirty(Page *page_ptr);
+
+  auto Fid(Page *page_ptr) -> frame_id_t {
+    size_t fid = page_ptr - pages_;
+    BUSTUB_ASSERT(fid < pool_size_, "invalid page_ptr");
+    return static_cast<frame_id_t>(fid);
+  }
+
+  inline auto FindPageTableAndLock(page_id_t pid) -> frame_id_t;
+
+  inline auto PopFreeList() -> frame_id_t {
+    std::lock_guard l(free_list_lock_);
+    if (free_list_.empty()) {
+      return -1;
+    }
+    frame_id_t fid = free_list_.front();
+    free_list_.pop_front();
+    return fid;
+  }
 
   // TODO(student): You may add additional private members and helper functions
 };
