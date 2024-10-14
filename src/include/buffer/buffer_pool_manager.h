@@ -26,6 +26,15 @@
 
 namespace bustub {
 
+struct HitInfo {
+  uint total_{0};
+  uint hit_{0};
+
+  auto GetHitRate() -> double { return static_cast<double>(hit_) / total_; }
+  void Hit() { hit_++, total_++; }
+  void Miss() { total_++; }
+};
+
 /**
  * BufferPoolManager reads disk pages to and from its internal buffer pool.
  */
@@ -171,6 +180,8 @@ class BufferPoolManager {
    * @return false if the page exists but could not be deleted, true if the page didn't exist or deletion succeeded
    */
   auto DeletePage(page_id_t page_id) -> bool;
+
+  HitInfo hit_info_;
 
  private:
   /** Number of pages in the buffer pool. */

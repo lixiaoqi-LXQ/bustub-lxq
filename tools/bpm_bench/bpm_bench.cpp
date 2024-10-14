@@ -300,5 +300,7 @@ auto main(int argc, char **argv) -> int {
 
   total_metrics.Report();
 
+  fmt::print("BPM Hit Rate: {}/{}={} \n", bpm->hit_info_.hit_, bpm->hit_info_.total_, bpm->hit_info_.GetHitRate());
+
   return 0;
 }

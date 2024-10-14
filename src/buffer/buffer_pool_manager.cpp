@@ -150,9 +150,11 @@ auto BufferPoolManager::FetchPage(page_id_t pid, [[maybe_unused]] AccessType acc
       page_ptr = &pages_[fid];
       page_ptr->pin_count_++;
     }
+    hit_info_.Hit();
     page_table_lock_.unlock();
-    replacer_->RecordAccess(fid);
+    replacer_->RecordAccess(fid, access_type);
   } else if ((page_ptr = NewPageAndLock(pid)) != nullptr) {
+    hit_info_.Miss();
     fid = Fid(page_ptr);
     page_table_lock_.unlock();  // FIXME: maybe dangerous?
     auto promise = disk_scheduler_->CreatePromise();
@@ -162,6 +164,7 @@ auto BufferPoolManager::FetchPage(page_id_t pid, [[maybe_unused]] AccessType acc
     future.get();
     page_locks_[fid]->unlock();
   } else {
+    hit_info_.Miss();
     page_table_lock_.unlock();
   }
   // fmt::print("[{}] FetchPage(pid={}, fid={}), page content: {}\n", std::this_thread::get_id(), pid, fid,
