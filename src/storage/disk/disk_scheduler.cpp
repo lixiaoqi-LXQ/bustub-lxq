@@ -46,9 +46,9 @@ void DiskScheduler::StartWorkerThread() {
   for (uint i = 0; i < threads_num_; i++) {
     auto queue = std::make_shared<Queue>();
     multi_queue_.push_back(queue);
-    printf("main %dth loop create a queue %p\n", i, queue.get());
+    // printf("main %dth loop create a queue %p\n", i, queue.get());
     multi_threads_.emplace_back([i, queue, this] {
-      printf("thread-%d get a queue %p\n", i, queue.get());
+      // printf("thread-%d get a queue %p\n", i, queue.get());
       auto r = queue->Get();
 
       while (r.has_value()) {

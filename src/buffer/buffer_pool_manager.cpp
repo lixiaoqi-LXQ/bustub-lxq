@@ -88,49 +88,58 @@ void BufferPoolManager::SyncPageIfDirty(Page *page_ptr) {
 }
 
 auto BufferPoolManager::NewPageAndLock(page_id_t pid) -> Page * {
+  // NOTE: page tabel lock is held from the caller outside
   Page *page_ptr{nullptr};
   frame_id_t fid;
+  enum { FAIL, FreeList, Evict } result_from;
 
   if ((fid = PopFreeList()) != -1) {
-    page_ptr = &pages_[fid];
+    result_from = FreeList;
   } else if (replacer_->Evict(&fid)) {
-    page_ptr = &pages_[fid];
-    std::lock_guard guard_page(*page_locks_[fid]);
-    auto victim_pid = page_ptr->GetPageId();
-    page_table_.erase(victim_pid);
-    BUSTUB_ASSERT(page_ptr->pin_count_ == 0, "the new page should have no pin");
-    // fmt::print("> [{}] NewPage evict page with pid={} fid={}\n", std::this_thread::get_id(), victim_pid, fid);
+    result_from = Evict;
+  } else {
+    result_from = FAIL;
   }
 
   // if found a new page, fid is not in all of the components:
   // page table, free list or replacer
 
   // initiate for the new page
-  if (page_ptr != nullptr) {
+  if (result_from != FAIL) {
+    page_ptr = &pages_[fid];
+    page_locks_[fid]->lock();
     if (pid == INVALID_PAGE_ID) {
       pid = AllocatePage();
     }
-    // LRU-K
-    replacer_->Add(fid);
-    {  // page table
-      // std::lock_guard l(page_table_lock_);
-      page_table_.emplace(pid, fid);
-      page_locks_[fid]->lock();
-    }
-    {  // page metadata
-      SyncPageIfDirty(page_ptr);
-      page_ptr->ResetMemory();
-      page_ptr->page_id_ = pid;
-      // printf("> NewPage set pid to %d\n", page_ptr->page_id_);
+
+    if (result_from == Evict) {
+      // remove victim pid
+      auto victim_pid = page_ptr->GetPageId();
+      page_table_.erase(victim_pid);
       BUSTUB_ASSERT(page_ptr->pin_count_ == 0, "the new page should have no pin");
-      page_ptr->pin_count_ = 1;
     }
+
+    // update page table and replacer
+    page_table_.emplace(pid, fid);
+    replacer_->Add(fid);
+    page_table_lock_.unlock();
+
+    // page metadata
+    SyncPageIfDirty(page_ptr);
+    page_ptr->ResetMemory();
+    page_ptr->page_id_ = pid;
+    // printf("> NewPage set pid to %d\n", page_ptr->page_id_);
+    BUSTUB_ASSERT(page_ptr->pin_count_ == 0, "the new page should have no pin");
+    page_ptr->pin_count_ = 1;
+  } else {
+    page_table_lock_.unlock();
   }
+
   return page_ptr;
 }
 
 auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
-  std::lock_guard l(page_table_lock_);
+  page_table_lock_.lock();
   Page *page_ptr = NewPageAndLock();
   if (page_ptr != nullptr) {
     *page_id = page_ptr->GetPageId();
@@ -153,19 +162,17 @@ auto BufferPoolManager::FetchPage(page_id_t pid, [[maybe_unused]] AccessType acc
     hit_info_.Hit();
     page_table_lock_.unlock();
     replacer_->RecordAccess(fid, access_type);
-  } else if ((page_ptr = NewPageAndLock(pid)) != nullptr) {
-    hit_info_.Miss();
-    fid = Fid(page_ptr);
-    page_table_lock_.unlock();  // FIXME: maybe dangerous?
-    auto promise = disk_scheduler_->CreatePromise();
-    auto future = promise.get_future();
-    DiskRequest r{/*is_write=*/false, page_ptr->data_, pid, std::move(promise)};
-    disk_scheduler_->Schedule(std::move(r));
-    future.get();
-    page_locks_[fid]->unlock();
   } else {
     hit_info_.Miss();
-    page_table_lock_.unlock();
+    if ((page_ptr = NewPageAndLock(pid)) != nullptr) {
+      fid = Fid(page_ptr);
+      auto promise = disk_scheduler_->CreatePromise();
+      auto future = promise.get_future();
+      DiskRequest r{/*is_write=*/false, page_ptr->data_, pid, std::move(promise)};
+      disk_scheduler_->Schedule(std::move(r));
+      future.get();
+      page_locks_[fid]->unlock();
+    }
   }
   // fmt::print("[{}] FetchPage(pid={}, fid={}), page content: {}\n", std::this_thread::get_id(), pid, fid,
   //            PageContent2Str(page_ptr).c_str());
