@@ -91,5 +91,19 @@ class DiskScheduler {
   Channel<std::optional<DiskRequest>> request_queue_;
   /** The background thread responsible for issuing scheduled requests to the disk manager. */
   std::optional<std::thread> background_thread_;
+
+  using Queue = Channel<std::optional<DiskRequest>>;
+  using QueuePtr = std::shared_ptr<Queue>;
+  const uint threads_num_{10};
+  std::vector<QueuePtr> multi_queue_;
+  std::vector<std::thread> multi_threads_;
+
+  struct PageProxy {
+    page_id_t pid_;
+    char *content_;
+    std::atomic<bool> using_;
+  };
+
+  std::vector<PageProxy> page_proxys_;
 };
 }  // namespace bustub
