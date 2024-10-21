@@ -66,6 +66,7 @@ class DiskManagerMemory : public DiskManager {
 class DiskManagerUnlimitedMemory : public DiskManager {
  public:
   DiskManagerUnlimitedMemory() { std::fill(recent_access_.begin(), recent_access_.end(), -1); }
+  ~DiskManagerUnlimitedMemory() { fmt::print("lat count (1ms/0.1ms): {}/{}\n", lat_1ms_, lat_0_1ms_); }
 
   /**
    * Write a page to the database file.
@@ -139,6 +140,7 @@ class DiskManagerUnlimitedMemory : public DiskManager {
           break;
         }
       }
+      sleep_micro_sec == 1000 ? lat_1ms_++ : lat_0_1ms_++;
       lck.unlock();
       std::this_thread::sleep_for(std::chrono::microseconds(sleep_micro_sec));
     }
@@ -163,6 +165,8 @@ class DiskManagerUnlimitedMemory : public DiskManager {
 
  private:
   bool latency_simulator_enabled_{false};
+  uint lat_1ms_{0};
+  uint lat_0_1ms_{0};
 
   std::mutex latency_processor_mutex_;
   std::array<page_id_t, 4> recent_access_;
