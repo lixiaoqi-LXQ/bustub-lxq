@@ -112,6 +112,9 @@ class BufferPoolManager {
    * @return nullptr if page_id cannot be fetched, otherwise pointer to the requested page
    */
   auto FetchPage(page_id_t pid, AccessType access_type = AccessType::Unknown) -> Page *;
+  auto FetchPageScan(page_id_t pid) -> Page *;
+  auto FetchPageGet(page_id_t pid) -> Page *;
+  auto FetchPageDefault(page_id_t pid, AccessType access_type = AccessType::Unknown) -> Page *;
 
   /**
    * TODO(P2): Add implementation
@@ -226,7 +229,7 @@ class BufferPoolManager {
   /// @brief grab one page from either free list or replacer, lock that page on success
   /// @param pid set new page's page-id to pid if pid is valid, or allocate a new one
   /// @return pointer to new page, nullptr if no chance
-  auto NewPageAndLock(page_id_t pid = INVALID_PAGE_ID) -> Page *;
+  auto NewPageAndLock(page_id_t pid = INVALID_PAGE_ID, bool auto_unlock=true) -> Page *;
 
   static inline void ResetPage(Page *p) {
     p->ResetMemory();

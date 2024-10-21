@@ -109,7 +109,9 @@ void LRUKEvictList::UpdatePosition(const LRUKNodePtr &node) {
   new_next->prev_ = node;
 }
 
-LRUKReplacer::LRUKReplacer(size_t num_frames, size_t k) : replacer_size_(num_frames), k_(k) {}
+LRUKReplacer::LRUKReplacer(size_t num_frames, size_t k) : replacer_size_(num_frames), k_(k) {
+  k_ = 2;
+}
 
 auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
   std::lock_guard l(latch_);
