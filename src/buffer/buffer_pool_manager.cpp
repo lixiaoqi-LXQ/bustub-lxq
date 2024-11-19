@@ -215,12 +215,23 @@ auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
   return ret;
 }
 
-auto BufferPoolManager::FetchPageBasic(page_id_t page_id) -> BasicPageGuard { return {this, nullptr}; }
+auto BufferPoolManager::FetchPageBasic(page_id_t page_id) -> BasicPageGuard {
+  auto ptr = FetchPage(page_id);
+  return {this, ptr};
+}
 
-auto BufferPoolManager::FetchPageRead(page_id_t page_id) -> ReadPageGuard { return {this, nullptr}; }
+auto BufferPoolManager::FetchPageRead(page_id_t page_id) -> ReadPageGuard {
+  BasicPageGuard bg{this, FetchPage(page_id)};
+  return bg.UpgradeRead();
+}
 
-auto BufferPoolManager::FetchPageWrite(page_id_t page_id) -> WritePageGuard { return {this, nullptr}; }
+auto BufferPoolManager::FetchPageWrite(page_id_t page_id) -> WritePageGuard {
+  BasicPageGuard bg{this, FetchPage(page_id)};
+  return bg.UpgradeWrite();
+}
 
-auto BufferPoolManager::NewPageGuarded(page_id_t *page_id) -> BasicPageGuard { return {this, nullptr}; }
-
+auto BufferPoolManager::NewPageGuarded(page_id_t *page_id) -> BasicPageGuard {
+  auto ptr = NewPage(page_id);
+  return {this, ptr};
+}
 }  // namespace bustub

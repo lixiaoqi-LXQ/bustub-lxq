@@ -106,12 +106,23 @@ class BasicPageGuard {
   friend class ReadPageGuard;
   friend class WritePageGuard;
 
+  static void MoveGuard(BasicPageGuard &&src, BasicPageGuard &&dest) {
+    dest.bpm_ = src.bpm_;
+    dest.page_ = src.page_;
+    dest.is_dirty_ = src.is_dirty_;
+
+    // invalidate the source guard
+    src.page_ = nullptr;
+  }
+
   [[maybe_unused]] BufferPoolManager *bpm_{nullptr};
   Page *page_{nullptr};
   bool is_dirty_{false};
 };
 
 class ReadPageGuard {
+  friend class BasicPageGuard;
+
  public:
   ReadPageGuard() = default;
   ReadPageGuard(BufferPoolManager *bpm, Page *page) : guard_(bpm, page) {}
@@ -172,6 +183,8 @@ class ReadPageGuard {
 };
 
 class WritePageGuard {
+  friend class BasicPageGuard;
+
  public:
   WritePageGuard() = default;
   WritePageGuard(BufferPoolManager *bpm, Page *page) : guard_(bpm, page) {}

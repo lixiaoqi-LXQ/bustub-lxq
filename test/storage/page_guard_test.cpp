@@ -23,7 +23,7 @@
 namespace bustub {
 
 // NOLINTNEXTLINE
-TEST(PageGuardTest, DISABLED_SampleTest) {
+TEST(PageGuardTest, SampleTest) {
   const size_t buffer_pool_size = 5;
   const size_t k = 2;
 
@@ -48,6 +48,35 @@ TEST(PageGuardTest, DISABLED_SampleTest) {
     page2->RLatch();
     auto guard2 = ReadPageGuard(bpm.get(), page2);
   }
+
+  // Shutdown the disk manager and remove the temporary file we created.
+  disk_manager->ShutDown();
+}
+
+TEST(PageGuardTest, Test1) {
+  const size_t buffer_pool_size = 5;
+  const size_t k = 2;
+
+  auto disk_manager = std::make_shared<DiskManagerUnlimitedMemory>();
+  auto bpm = std::make_shared<BufferPoolManager>(buffer_pool_size, disk_manager.get(), k);
+
+  page_id_t page_id_temp;
+
+  {
+    bpm->NewPageGuarded(&page_id_temp);
+    bpm->NewPageGuarded(&page_id_temp);
+    bpm->NewPageGuarded(&page_id_temp);
+    bpm->NewPageGuarded(&page_id_temp);
+    bpm->NewPageGuarded(&page_id_temp);
+  }
+  std::vector<BasicPageGuard> bgs;
+  for (int i = 0; i < 5; i++) {
+    bgs.push_back(bpm->FetchPageBasic(i));
+  }
+
+  // EXPECT_EQ(page0->GetData(), guarded_page.GetData());
+  // EXPECT_EQ(page0->GetPageId(), guarded_page.PageId());
+  // EXPECT_EQ(1, page0->GetPinCount());
 
   // Shutdown the disk manager and remove the temporary file we created.
   disk_manager->ShutDown();
