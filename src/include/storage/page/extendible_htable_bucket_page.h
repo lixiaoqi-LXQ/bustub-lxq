@@ -47,6 +47,7 @@ constexpr auto HTableBucketArraySize(uint64_t mapping_type_size) -> uint64_t {
 template <typename KeyType, typename ValueType, typename KeyComparator>
 class ExtendibleHTableBucketPage {
  public:
+  enum OperationResult { NotFound, KeyExist, Full };
   // Delete all constructor / destructor to ensure memory safety
   ExtendibleHTableBucketPage() = delete;
   DISALLOW_COPY_AND_MOVE(ExtendibleHTableBucketPage);
@@ -114,17 +115,17 @@ class ExtendibleHTableBucketPage {
   /**
    * @return number of entries in the bucket
    */
-  auto Size() const -> uint32_t;
+  auto Size() const -> uint32_t { return size_; }
 
   /**
    * @return whether the bucket is full
    */
-  auto IsFull() const -> bool;
+  auto IsFull() const -> bool { return size_ == max_size_; }
 
   /**
    * @return whether the bucket is empty
    */
-  auto IsEmpty() const -> bool;
+  auto IsEmpty() const -> bool { return size_ == 0; }
 
   /**
    * Prints the bucket's occupancy information
