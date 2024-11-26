@@ -29,6 +29,8 @@
 
 namespace bustub {
 
+const uint32_t DIRECTORY_MASK[] = {0x0, 0x1, 0x3, 0x7, 0xf, 0x1f, 0x3f, 0x7f, 0xff, 0x1ff};
+
 static constexpr uint64_t HTABLE_DIRECTORY_PAGE_METADATA_SIZE = sizeof(uint32_t) * 2;
 
 /**
@@ -117,9 +119,11 @@ class ExtendibleHTableDirectoryPage {
    *
    * @return the global depth of the directory
    */
-  auto GetGlobalDepth() const -> uint32_t;
+  auto GetGlobalDepth() const -> uint32_t { return global_depth_; }
 
-  auto GetMaxDepth() const -> uint32_t;
+  auto GetMaxDepth() const -> uint32_t { return max_depth_; }
+
+  auto CanGrow() const -> bool { return global_depth_ < max_depth_; }
 
   /**
    * Increment the global depth of the directory
@@ -139,12 +143,12 @@ class ExtendibleHTableDirectoryPage {
   /**
    * @return the current directory size
    */
-  auto Size() const -> uint32_t;
+  auto Size() const -> uint32_t { return 1 << global_depth_; }
 
   /**
    * @return the max directory size
    */
-  auto MaxSize() const -> uint32_t;
+  auto MaxSize() const -> uint32_t { return 1 << max_depth_; }
 
   /**
    * Gets the local depth of the bucket at bucket_idx

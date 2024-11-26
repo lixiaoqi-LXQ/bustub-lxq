@@ -27,8 +27,6 @@ void ExtendibleHTableDirectoryPage::Init(uint32_t max_depth) {
   std::fill(std::begin(bucket_page_ids_), std::end(bucket_page_ids_), INVALID_PAGE_ID);
 }
 
-static const uint32_t DIRECTORY_MASK[] = {0x0, 0x1, 0x3, 0x7, 0xf, 0x1f, 0x3f, 0x7f, 0xff, 0x1ff};
-
 auto ExtendibleHTableDirectoryPage::GetGlobalDepthMask() const -> uint32_t { return DIRECTORY_MASK[global_depth_]; }
 auto ExtendibleHTableDirectoryPage::GetLocalDepthMask(uint32_t bucket_idx) const -> uint32_t {
   return DIRECTORY_MASK[GetLocalDepth(bucket_idx)];
@@ -49,10 +47,13 @@ void ExtendibleHTableDirectoryPage::SetBucketPageId(uint32_t bucket_idx, page_id
 }
 
 auto ExtendibleHTableDirectoryPage::GetSplitImageIndex(uint32_t bucket_idx) const -> uint32_t {
-  return bucket_idx ^ (1 << (global_depth_ - 1));
+  auto local_depth = GetLocalDepth(bucket_idx);
+  if (local_depth == 0) {
+    return 0u;
+  }
+  auto mask = 1u << (local_depth - 1);
+  return (bucket_idx & DIRECTORY_MASK[local_depth]) ^ mask;
 }
-
-auto ExtendibleHTableDirectoryPage::GetGlobalDepth() const -> uint32_t { return global_depth_; }
 
 void ExtendibleHTableDirectoryPage::IncrGlobalDepth() {
   BUSTUB_ASSERT(++global_depth_ <= max_depth_, "gloabl depth out of range");
@@ -89,8 +90,6 @@ auto ExtendibleHTableDirectoryPage::CanShrink() -> bool {
   }
   return true;
 }
-
-auto ExtendibleHTableDirectoryPage::Size() const -> uint32_t { return 1 << global_depth_; }
 
 auto ExtendibleHTableDirectoryPage::GetLocalDepth(uint32_t bucket_idx) const -> uint32_t {
   return local_depths_[bucket_idx];

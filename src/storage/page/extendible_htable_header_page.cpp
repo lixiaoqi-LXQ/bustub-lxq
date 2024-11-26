@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include "common/exception.h"
+#include "fmt/core.h"
 
 namespace bustub {
 
@@ -23,7 +24,7 @@ void ExtendibleHTableHeaderPage::Init(uint32_t max_depth) {
 }
 
 auto ExtendibleHTableHeaderPage::HashToDirectoryIndex(uint32_t hash) const -> uint32_t {
-  return hash >> (32 - max_depth_);
+  return static_cast<uint64_t>(hash) >> (32 - max_depth_);
 }
 
 auto ExtendibleHTableHeaderPage::GetDirectoryPageId(uint32_t directory_idx) const -> page_id_t {

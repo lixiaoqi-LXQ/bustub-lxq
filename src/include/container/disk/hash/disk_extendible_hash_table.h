@@ -36,6 +36,8 @@ namespace bustub {
  */
 template <typename K, typename V, typename KC>
 class DiskExtendibleHashTable {
+  using BucketPageType = ExtendibleHTableBucketPage<K, V, KC>;
+
  public:
   /**
    * @brief Creates a new DiskExtendibleHashTable.
