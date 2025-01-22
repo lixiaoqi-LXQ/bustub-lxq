@@ -48,9 +48,9 @@ DiskExtendibleHashTable<K, V, KC>::DiskExtendibleHashTable(const std::string &na
       bucket_max_size_(bucket_max_size) {
   // throw NotImplementedException("DiskExtendibleHashTable is not implemented");
   auto page_guard = bpm->NewPageGuarded(&header_page_id_).UpgradeWrite();
-  auto header = page_guard.AsMut<ExtendibleHTableHeaderPage>();
+  auto header = page_guard.template AsMut<ExtendibleHTableHeaderPage>();
   header->Init(header_max_depth);
-  std::cout << header_max_depth << "\t" << directory_max_depth << "\t" << bucket_max_size << std::endl;
+  // std::cout << header_max_depth << "\t" << directory_max_depth << "\t" << bucket_max_size << std::endl;
 }
 
 /*****************************************************************************
@@ -60,7 +60,7 @@ template <typename K, typename V, typename KC>
 auto DiskExtendibleHashTable<K, V, KC>::GetValue(const K &key, std::vector<V> *result, Transaction *transaction) const
     -> bool {
   auto hash = Hash(key);
-  std::cout << "LookUp key=" << key << " with hash=" << hash << std::endl;
+  // std::cout << "LookUp key=" << key << " with hash=" << hash << std::endl;
 
   // header
   ReadPageGuard header_guard = bpm_->FetchPageRead(header_page_id_);
@@ -98,7 +98,7 @@ auto DiskExtendibleHashTable<K, V, KC>::GetValue(const K &key, std::vector<V> *r
 template <typename K, typename V, typename KC>
 auto DiskExtendibleHashTable<K, V, KC>::Insert(const K &key, const V &value, Transaction *transaction) -> bool {
   auto hash = Hash(key);
-  std::cout << "Insert key=" << key << " with hash=" << hash << std::endl;
+  // std::cout << "Insert key=" << key << " with hash=" << hash << std::endl;
 
   // header
   WritePageGuard header_guard = bpm_->FetchPageWrite(header_page_id_);
@@ -115,7 +115,8 @@ auto DiskExtendibleHashTable<K, V, KC>::Insert(const K &key, const V &value, Tra
     // init bucket
     auto bucket = bkt_guard.AsMut<BucketPageType>();
     bucket->Init(bucket_max_size_);
-    BUSTUB_ASSERT(bucket->Insert(key, value, cmp_) == true, "new bucket can insert");
+    auto insert_result = bucket->Insert(key, value, cmp_);
+    BUSTUB_ASSERT(insert_result == true, "new bucket can insert");
 
     // init directory: depth is 0, only 1 bucket in the page table
     auto dir = dir_guard.AsMut<ExtendibleHTableDirectoryPage>();
@@ -226,7 +227,7 @@ void DiskExtendibleHashTable<K, V, KC>::UpdateDirectoryMapping(ExtendibleHTableD
 template <typename K, typename V, typename KC>
 auto DiskExtendibleHashTable<K, V, KC>::Remove(const K &key, Transaction *transaction) -> bool {
   auto hash = Hash(key);
-  std::cout << "Remove key=" << key << " with hash=" << hash << std::endl;
+  // std::cout << "Remove key=" << key << " with hash=" << hash << std::endl;
 
   // header
   WritePageGuard header_guard = bpm_->FetchPageWrite(header_page_id_);
